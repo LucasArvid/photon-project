@@ -5,8 +5,10 @@ import time
 import _thread
 
 counter = 0
+bpm = 0
 
 # 10 000 imp/kWh -> 166,667 imp/kWh per min -> 2.778 imp/kWh per sec
+# calculate kW with ---- kW = 3600(sec in a hr) / (bpm(secs between flashes) * imp/kWh)
 
 # Timer for sending data to pybytes, should be periodicly sent depending on the interval of the power indicator
 class Data_Interupt:
@@ -15,15 +17,16 @@ class Data_Interupt:
         self.seconds = 0
         self.led = 1
         self.__alarm = Timer.Alarm(self._seconds_handler, 60, periodic=True)
-        self.__alarm2 = Timer.Alarm(self._led_handler, 0.5, periodic=True)
+        self.__alarm2 = Timer.Alarm(self._led_handler, 0.2, periodic=True)
 
     def _seconds_handler(self, alarm):
         global counter
-        kWh = self._calculate_power()
-        self.seconds += 10
+        global bpm
+        kWh = 3600/ (bpm * 10000)
+        self.seconds += 60
         print("kWh: " + str(kWh))
         print("%02d seconds have passed" % self.seconds)
-        pybytes.send_signal(0, kWh)
+        #pybytes.send_signal(0, kWh)
         counter = 0
     
     def _led_handler(self, alarm):
@@ -46,8 +49,10 @@ def track_light():
     adc = machine.ADC()             # create an ADC object
     apin = adc.channel(pin='P16') 
     global counter
+    global bpm 
     light = False
-
+    chrono = Timer.Chrono()
+    chrono.start()
 
     while True:
         val = apin()    
@@ -55,18 +60,17 @@ def track_light():
         val= val/10
 
         if val >= 0.5 and light == False:
-            print("Light")
+            time = chrono.read_ms()/1000
+            print("time: " + str(time))
+            if time > 0.05:
+                bpm = time
             counter += 1
-            print(str(val))
-            print(str(light))
             print("")
             light = True
+            chrono.reset()
+            
 
         elif val < 0.5 and light == True:
-            print("Dark")
-            print(str(val))
-            print(str(light))
-            print("")
             light = False
 
 
